@@ -1,7 +1,7 @@
 # debt_collection_docs
 Policy Lab SP'24
 
-This repository contains code to scrape legal documents from LA County debt collection cases for Policy Lab. The code looks for addresses on the last (usually 6th, very rarely 7th) page of the Civil Case Cover Sheet, and looks for the initial demand on the 1st or 2nd page of the Complaint. The addresses are detected ~70% of the time and the initial demands are detected ~67% of the time; however, manual verification is still recommended because there are sometimes errors from the Optical Character Recognition (OCR). 
+This repository contains code to scrape legal documents from LA County debt collection cases for Policy Lab. The code looks for addresses on the last (usually 6th, very rarely 7th) page of the Civil Case Cover Sheet, and looks for the initial demand on the 1st or 2nd page of the Complaint. The addresses are detected ~70% of the time and the initial demands are detected ~65% of the time; however, manual verification is still recommended because there are sometimes errors from the Optical Character Recognition (OCR). 
 
 ## Quickstart 
 ### Setup
