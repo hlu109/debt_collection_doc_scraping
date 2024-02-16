@@ -46,6 +46,9 @@ There are lots of workarounds, but the more successful ones probably all require
 
 
 ## Alternative strategies and things to improve: 
+* Test accuracy of OCR against the hand-collected data. Even though we are able to extract information for 65-70% of cases, this figure only represents the files where the code didn't crash, and does not represent the accuracy of the extracted information. 
+
+
 ### For initial demand extraction
 * I suspect that a lot of the cases where the algorithm fails to extract the initial demand is because the OCR has some typos and fails to match the regex pattern. We should double check this, and if this is the case, figure out a way to look for strings within a small edit distance.
 
