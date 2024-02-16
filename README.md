@@ -30,7 +30,7 @@ The ```demo.ipynb``` is a jupyter notebook with an example of how to use this co
 * the path to the folder containing all the actual pdf documents
 * the path of a new output csv.
 
-The functions will iterate over all the case numbers, attempt to extract the desired information, and save the results to a new csv. It will also log whether or not the automated extraction passed or failed in the Notes section of the csv, along with an error message if there is one. 
+The functions will iterate over all the case numbers, attempt to extract the desired information, and save the results to a new csv. If it could not extract the information, it will leave the entry blank. It will also log whether or not the automated extraction passed or failed in the Notes section of the csv, along with an error message if there is one. 
 
 ## How it works: 
 ### Initial demand 
