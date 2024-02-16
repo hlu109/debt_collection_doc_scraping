@@ -25,7 +25,7 @@ This repository contains code to scrape legal documents from LA County debt coll
   ```pip install -r requirements.txt```
 
 ### Function calls 
-The two main functions in this repo are ```extract_all_addresses(input_csv_path, file_dir, output_csv_path)``` and ```extract_all_init_demands(input_csv_path, file_dir, output_csv_path)```. To call either of them, simply pass 
+The ```demo.ipynb``` is a jupyter notebook with an example of how to use this code. The two main functions in this repo are ```extract_all_addresses(input_csv_path, file_dir, output_csv_path)``` and ```extract_all_init_demands(input_csv_path, file_dir, output_csv_path)```. To call either of them, simply pass 
 * the path to the original csv containing all the case numbers you want to extract information for
 * the path to the folder containing all the actual pdf documents
 * the path of a new output csv.
