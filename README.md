@@ -1,13 +1,15 @@
 # debt_collection_docs
 Policy Lab SP'24
 
-This repository contains code to scrape legal documents from LA County debt collection cases for Policy Lab. The code looks for addresses on the last (6th or 7th) page of the Civil Case Cover Sheet, and looks for the initial demand on the 1st or 2nd page of the Complaint. The addresses are detected ~70% of the time and the initial demands are detected ~67% of the time; however, manual verification is still recommended because there are sometimes errors from the OCR. 
+This repository contains code to scrape legal documents from LA County debt collection cases for Policy Lab. The code looks for addresses on the last (usually 6th, very rarely 7th) page of the Civil Case Cover Sheet, and looks for the initial demand on the 1st or 2nd page of the Complaint. The addresses are detected ~70% of the time and the initial demands are detected ~67% of the time; however, manual verification is still recommended because there are sometimes errors from the Optical Character Recognition (OCR). 
 
 ## Quickstart 
 ### Setup
 * Download the legal files you want to scrape over, as well as the csv containing the details on case numbers, file names, etc. (The code assumes the file naming convention and csv matches what we were given in the lab's Box folder.) 
 * Make sure you have python, pip, and git installed on your machine.
-* [install tesseract](https://tesseract-ocr.github.io/tessdoc/Installation.html) - this is the Optical Character Recognition (OCR) engine
+* [install tesseract](https://tesseract-ocr.github.io/tessdoc/Installation.html) - this is the OCR engine
+  * Make sure to add the tesseract executable to your PATH. You can test if it's there by calling `tesseract` in your command line to see if it returns the help text or crashes.
+  * If you don't have the tesseract executable in your PATH, then you need to find the path to the executable; when you clone this repo, go into the ```doc_scraping.py``` file, uncomment the code on line 17 that says ```pytesseract.pytesseract.tesseract_cmd =r"/usr/local/Cellar/tesseract/5.3.4/bin/tesseract"```, and replace the string with your path to the executable. 
 * [install poppler](https://pdf2image.readthedocs.io/en/latest/installation.html) - this is used for pdf/image conversion library 
 * Clone this repo and cd into it
 
