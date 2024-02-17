@@ -1,7 +1,7 @@
 # debt_collection_doc_scraping
 Policy Lab SP'24
 
-This repository contains code to scrape legal documents from LA County debt collection cases for Policy Lab. The code looks for addresses on the last (usually 6th, very rarely 7th) page of the Civil Case Cover Sheet, and looks for the initial demand on the 1st or 2nd page of the Complaint. The addresses are detected ~70% of the time and the initial demands are detected ~65% of the time; however, manual verification is still recommended because there are sometimes errors from the Optical Character Recognition (OCR). 
+This repository contains code to scrape legal documents from LA County debt collection cases for Policy Lab. The code looks for addresses on the last (usually 6th, very rarely 7th) page of the Civil Case Cover Sheet, and looks for the initial demand on the 1st or 2nd page of the Complaint. The addresses are detected ~70% of the time and the initial demands are detected ~65% of the time; however, manual verification is still recommended because there are sometimes errors from the Optical Character Recognition (OCR). (Out of a sample of 450 cases, 330 addresses were extracted, with 20 of the addresses having OCR issues of various sorts.) 
 
 ## Quickstart 
 ### Setup
@@ -47,7 +47,11 @@ There are lots of workarounds, but the more successful ones probably all require
 
 ## Alternative strategies and things to improve: 
 * Test accuracy of OCR against the hand-collected data. Even though we are able to extract information for 65-70% of cases, this figure only represents the files where the code didn't crash, and does not represent the accuracy of the extracted information. 
-
+* Improve running time. Currently the address extraction can process around 350 cases an hour. For 500,000 cases, it would take around 1,400 hours, or 60 days 😬
+ * downsize the images, when feasible (probably want to keep it around 300 DPI for the OCR, though) 
+ * more aggressive cropping to reduce image sizes 
+ * improve the box detection algorithm so we don't have to rotate it by 0.1 degrees like 20 times
+* Add intermediate saving steps. Useful in case you want to pause midway through or when accidents happen. 
 
 ### For initial demand extraction
 * I suspect that a lot of the cases where the algorithm fails to extract the initial demand is because the OCR has some typos and fails to match the regex pattern. We should double check this, and if this is the case, figure out a way to look for strings within a small edit distance.
