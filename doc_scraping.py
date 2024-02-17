@@ -450,16 +450,19 @@ def address_from_crops(address_crop,
     # sometimes we don't have anything, so we have to catch that case too
     zip_texts = zip_texts[5:].strip()
     zipcode = zipcode_5
-    if len(zip_texts) > 0:
-        # drop the hyphen if we find one (sometimes there isn't)
-        if zip_texts[0] in ['-', '_', '–']:
-            zip_texts = zip_texts[1:]
-        # then get the next 4 characters and check if they are digitis
-        zip_texts = zip_texts.strip()
-        zipcode_4 = zip_texts[:4]
-        if zipcode_4.isdigit():
-            zipcode = zipcode_5 + '-' + zipcode_4
-    # if not, we just ignore, there was probably an OCR error and the zip+4 isn't required to geolocate the address
+    # TODO figure out a better way to distinguish valid +4 zip codes from gibberish (which happens often when the text overlaps the horizontal bottom line of the box and the OCR gets confused by the strikethrough)
+    # for now, we just ignore the +4 zip code, since that shouldn't be necessary for geocoding when we have the rest of the address
+
+    # if len(zip_texts) > 0:
+    #     # drop the hyphen if we find one (sometimes there isn't)
+    #     if zip_texts[0] in ['-', '_', '–']:
+    #         zip_texts = zip_texts[1:]
+    #     # then get the next 4 characters and check if they are digitis
+    #     zip_texts = zip_texts.strip()
+    #     zipcode_4 = zip_texts[:4]
+    #     if zipcode_4.isdigit():
+    #         zipcode = zipcode_5 + '-' + zipcode_4
+    # # if not, we just ignore, there was probably an OCR error and the zip+4 isn't required to geolocate the address
 
     # display the original scans and extracted address in case we want to verify results
     if verbose:
