@@ -39,8 +39,7 @@ def get_file(case_number, file_type, file_dir):
     for f in os.listdir(file_dir):
         if f.lower().startswith(case_number) and file_type in f.lower():
             if file_type != 'complaint' or (file_type == 'complaint'
-                                            and 'summons_on_complaint'
-                                            not in f.lower()):
+                                            and 'summons' not in f.lower()):
                 possible_files.append(os.path.join(file_dir, f))
     return possible_files
 
@@ -67,7 +66,7 @@ def cover_sheet_last_page_image(case_number, file_dir):
             f'could not find civil case cover sheet for case {case_number}')
     elif len(fpaths) > 1:
         raise Exception(
-            f'found {len(fpaths)} civil case cover sheets for case {case_number}'
+            f'found {len(fpaths)} civil case cover sheets for case {case_number}: {fpaths}'
         )
 
     # convert pdf to image
@@ -389,9 +388,11 @@ def address_from_crops(address_crop,
     # strip whitespace so that it should start with 'CITY'
     city_texts = city_texts.strip()
     city_start_idx = city_texts.upper().find('CITY')
-    # also check for typos of CITY (I've seen CHY, OI)
+    # also check for typos of CITY (I've seen CHY, OI, Ciry)
     if city_start_idx == -1:
         city_start_idx = city_texts.upper().find('CHY')
+    if city_start_idx == -1:
+        city_start_idx = city_texts.upper().find('CIRY')
     assert city_start_idx != -1, f'the city block should start with CITY but could not find that word in: {city_texts}'
     # remove the starting text corresponding to 'CITY'
     city = city_texts[city_start_idx + len('CITY'):]
@@ -420,6 +421,9 @@ def address_from_crops(address_crop,
     # strip whitespace so that it should start with 'ZIP'
     zip_texts = zip_texts.strip()
     zip_start_idx = zip_texts.upper().find('ZIP')
+    # also check for typos of ZIP
+    if zip_start_idx == -1:
+        zip_start_idx = zip_texts.upper().find('21P')
     assert zip_start_idx != -1, f'the zip block should start with ZIP but could not find that word in: {zip_texts}'
     # remove the starting text corresponding to 'ZIP'
     zip_texts = zip_texts[zip_start_idx + len('ZIP'):]
@@ -553,57 +557,115 @@ def extract_init_demand(case_number, file_dir, verbose=False):
         raise Exception(f'could not complaint for case {case_number}')
     elif len(fpaths) > 1:
         raise Exception(
-            f'found {len(fpaths)} complaints for case {case_number}')
+            f'found {len(fpaths)} complaints for case {case_number}: {fpaths}')
 
-    # initial demand should be on the first or second page of the complaint
-    images = convert_from_path(fpaths[0], dpi=DPI, last_page=2)
+    # initial demand should be on the first, second, or third page of the complaint
+    images = convert_from_path(fpaths[0], dpi=DPI, last_page=3)
 
-    # verify that we have 2 pages from the doc
+    # verify that we have at least 2 pages from the doc (its often ok if we don't have 3rd)
     if len(images) < 2:
         raise Exception(
             'complaint has fewer than 2 pages, may be missing initial demand')
-    # TODO we should still try checking first page even if we don't have second page. but tbh i think it'll be very unlikely we have less than 2 pages
+    # # TODO we should still try checking first page even if we don't have second page. but tbh i think it'll be very unlikely we have less than 2 pages
+
+    # it makes things a lot faster to crop the first page to the right half of the page; however, we have to be kind of careful with cropping because if we crop too far, we'll lose the key text, but if we don't crop far right enough, our OCR could give us some random letters from the left half of the page in between the DEMAND and monetary value
+    # for now, we just don't crop horizontally
+    # crop the first page to remove the top and bottom quarter of the page, to speed up processing
+    first_page_image = np.array(images[0])[800:-800, :]
+    # first_page_image = np.array(images[0])[800:-800, 1300:] # ignore horizontal crop for now
+    # crop the second page to the bottom half of the page where section 10 is, to speed up processing
+    second_page_image = np.array(images[1])[1500:, :]
+    if len(images) >= 3:
+        third_page_image = np.array(images[2])
+    else:
+        third_page_image = None
 
     # run OCR
     tesseract_config = f"--oem 1 --dpi {DPI}"
     # NOTE the tesseract characte whitelist only works for the legacy mode, not the newer neural net/LSTM mode, which apparently doesn't respect the whitelist
-    first_page_text = pytesseract.image_to_string(images[0],
+    first_page_text = pytesseract.image_to_string(first_page_image,
                                                   config=tesseract_config)
-    second_page_text = pytesseract.image_to_string(images[1],
+    second_page_text = pytesseract.image_to_string(second_page_image,
                                                    config=tesseract_config)
+    if third_page_image is not None:
+        third_page_text = pytesseract.image_to_string(third_page_image,
+                                                      config=tesseract_config)
+    else:
+        third_page_text = ''
+
+    # remove all newlines from the text and replace with space because newlines are slightly annoying to handle using regex (they aren't included by the \s whitespace character)
+    first_page_text = first_page_text.replace('\n', ' ')
+    second_page_text = second_page_text.replace('\n', ' ')
+    third_page_text = third_page_text.replace('\n', ' ')
 
     # check which version of the complaint form is used by searching for different variations of the text:
+    # * page 1:
     #     * DEMAND: $XXXXX.XX
+    #     * DEMAND AMOUNT: $XXXXX.XX
+    #     * AMOUNT OF DEMAND: $XX,XXX.XX
+    #     * AMOUNT DEMANDED: $XX,XXX.XX
+    #     * Demand is for $XXXXX.XX
     #     * PRAYER AMOUNT: $XXXXX.XX
-    #     * 10. Plaintiff prays for judgment for costs of suit; for such relief
-    #       as is fair, just, and equitable; and for a. damages of: $XXXXX.XX
+    #     * PRAYER AMT: $XXXXX.XX
+    #     * LIMITED CIVIL: $XXXXX.XX
+    # * page 2:
+    #     * 10. Plaintiff prays for judgment for costs of suit; for such
+    #       relief as is fair, just, and equitable; and for a. damages of:
+    #       $XXXXX.XX
+    # * page 3:
+    #     * WHEREFORE, as to all Causes of Action, Plaintiff prays for
+    #       judgment against Defendant, including but not limited to, the
+    #       amounts as follows: For damages of $XXXXX.XX;
     # NOTE: we assume between 3-5 digits on the left integer side of the decimal (since should be <$25,000 and plaintiffs probably won't sue if it's <$100)
     # use regex to extract monetary amount
     prayer_amount_regex = "[pP][rR][aA][yY][eE][rR]\s*[aA][mM][oO][uU][nN][tT]\s*[:;,.-]?\s*[$Ss]\s*(\d{0,2}[,.]?\d{0,3}[.,]?\d{2})"
-    demand_regex = "[dD][eE][mM][aA][nN][dD]\s*[:;,.-]?\s\s*[$Ss]\s*(\d{0,2}[,.]?\d{0,3}[.,]?\d{2})"
-    plaintiff_prays_regex = "damages\s*of\s*[:;,.-]?\s*[$Ss]\s*(\d{0,2}[,.]?\d{0,3}[.,]?\d{2})"
+    prayer_amt_regex = "[pP][rR][aA][yY][eE][rR]\s*[aA][mM][tT]\s*[:;,.-]?\s*[$Ss]\s*(\d{0,2}[,.]?\d{0,3}[.,]?\d{2})"
+    demand_regex = "[dD][eE][mM][aA][nN][dD]\s*[:;,.-]?\s*[$Ss]\s*(\d{0,2}[,.]?\d{0,3}[.,]?\d{2})"
+    demand_amount_regex = "[dD][eE][mM][aA][nN][dD]\s*[aA][mM][oO][uU][nN][tT]\s*[:;,.-]?\s*[$Ss]\s*(\d{0,2}[,.]?\d{0,3}[.,]?\d{2})"
+    amount_demanded_regex = "[aA][mM][oO][uU][nN][tT]\s*[dD][eE][mM][aA][nN][dD][eE][dD]\s*[:;,.-]?\s*[$Ss]\s*(\d{0,2}[,.]?\d{0,3}[.,]?\d{2})"
+    demand_is_for_regex = "[dD][eE][mM][aA][nN][dD]\s*[iI][sS]\s*[fF][oO][rR]\s*[:;,.-]?\s*[$Ss]\s*(\d{0,2}[,.]?\d{0,3}[.,]?\d{2})"
+    limited_civil_regex = "[lLiI][iIl][mM][iIl][tT][eE][dD]\s*[cC][iIl][vV][iIl][lLiI]\s*[:;,.-]?\s*[$Ss]\s*(\d{0,2}[,.]?\d{0,3}[.,]?\d{2})"
+    damages_of_regex = "damages\s*of\s*[:;,.-]?\s*[$Ss]\s*[$]?\s*(\d{0,2}[,.]?\d{0,3}[.,]?\d{2})"  # sometimes there are sheets with 2 dollar signs..
     # TODO figure out a way to make these more robust to OCR typos
     # note sometimes the decimal point in the monetary value doesn't get detected by OCR, hence why we make them optional in the regex pattern
     prayer_amount_results = re.findall(prayer_amount_regex, first_page_text)
+    prayer_amt_results = re.findall(prayer_amt_regex, first_page_text)
     demand_results = re.findall(demand_regex, first_page_text)
-    plaintiff_prays_results = re.findall(plaintiff_prays_regex,
-                                         second_page_text)
+    demand_amount_results = re.findall(demand_amount_regex, first_page_text)
+    amount_demanded_results = re.findall(amount_demanded_regex,
+                                         first_page_text)
+    demand_is_for_results = re.findall(demand_is_for_regex, first_page_text)
+    limited_civil_results = re.findall(limited_civil_regex, first_page_text)
+    damages_of_results_p2 = re.findall(damages_of_regex, second_page_text)
+    damages_of_results_p3 = re.findall(damages_of_regex, third_page_text)
 
     # convert to value
-    demands_found = prayer_amount_results + demand_results + plaintiff_prays_results
+    demands_found = prayer_amount_results + prayer_amt_results + demand_results + demand_amount_results + amount_demanded_results + demand_is_for_results + limited_civil_results + damages_of_results_p2 + damages_of_results_p3
     if len(demands_found) == 0:
         raise Exception(
-            'could not find initial demand on first or second page; aborting')
+            'could not find initial demand on first 3 pages; aborting')
     if len(demands_found) > 1:
         print('found multiple instances of initial demand, which is weird')
         # if we somehow find multiple demands, just take the first one for now
         # TODO add better handling later
     if len(prayer_amount_results) > 0:
         found_on = 'page 1 (as PRAYER AMOUNT)'
+    if len(prayer_amt_results) > 0:
+        found_on = 'page 1 (as PRAYER AMT)'
     if len(demand_results) > 0:
         found_on = 'page 1 (as DEMAND)'
-    if len(plaintiff_prays_results) > 0:
-        found_on = 'page 2 (section 10. Plaintiff prays. . . for damages of)'
+    if len(demand_amount_results) > 0:
+        found_on = 'page 1 (as DEMAND AMOUNT)'
+    if len(amount_demanded_results) > 0:
+        found_on = 'page 1 (as AMOUNT DEMANDED)'
+    if len(demand_is_for_results) > 0:
+        found_on = 'page 1 (as Demand is for)'
+    if len(limited_civil_results) > 0:
+        found_on = 'page 1 (as LIMITED CIVIL)'
+    if len(damages_of_results_p2) > 0:
+        found_on = 'page 2 (as damages of)'
+    if len(damages_of_results_p3) > 0:
+        found_on = 'page 3 (as damages of)'
 
     if verbose:
         print(f'found initial demand on {found_on}')
