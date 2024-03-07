@@ -28,7 +28,10 @@ The addresses are detected ~70% of the time and the initial demands are detected
 
 ### Function calls 
 The ```demo.ipynb``` is a jupyter notebook with an example of how to use this code. The two main functions in this repo are ```extract_all_addresses(input_csv_path, file_dir, output_csv_path)``` and ```extract_all_init_demands(input_csv_path, file_dir, output_csv_path)```. To call either of them, simply pass 
-* the path to the original csv containing all the case numbers you want to extract information for
+* the path to the input csv. 
+  * This is a file where each row represents a separate legal file in a particular case (e.g. civil case cover sheet, complaint). It should contain two columns of interest: 
+    * `case_number`, containing the case identifier
+    * `Document`, containing the description of the document type (e.g. "Civil Case Cover Sheet", "Complaint")
 * the path to the folder containing all the actual pdf documents
 * the path of a new output csv.
 
